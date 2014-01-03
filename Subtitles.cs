@@ -90,7 +90,6 @@ namespace SubtitlesParser
 
             var subtitles = new Subtitles();
             subtitles.AddRange(from subtitlePart in await ReadWebVttSubtitleParts(source)
-                where !subtitlePart.Contains("WEBVTT", StringComparison.OrdinalIgnoreCase)
                 select subtitlePart.Split(new[] {Environment.NewLine}, StringSplitOptions.None).ToList()
                 into lines
                 let firstIndex = lines.FindIndex(line => Regex.IsMatch(line, timeCodeRegex))
