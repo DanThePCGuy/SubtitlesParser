@@ -19,13 +19,12 @@ namespace SubtitlesParser
             return await ReadFromSubripAsync(streamResult);
         }
 
-        public static async Task<Subtitles> ReadFromSubripAsync(string content)
+        public static async Task<Subtitles> ReadFromSubripAsync(string source)
         {
             const string timeCodeRegex = @"^([\d\,:]+)\s+-->\s+([\d\,:]+)(?:\s,*)?$";
 
             var subtitles = new Subtitles();
-
-            subtitles.AddRange(from subtitlePart in await Task.Factory.StartNew(() => ReadSubripSubtitleParts(content))
+            subtitles.AddRange(from subtitlePart in await ReadSubripSubtitleParts(source)
                 select subtitlePart.Split(new[] {Environment.NewLine}, StringSplitOptions.None).ToList()
                 into lines
                 where lines.Count > 3
@@ -34,37 +33,35 @@ namespace SubtitlesParser
                 let start = ParseSubripTimecode(timeCodes.Groups[1].Value)
                 let end = ParseSubripTimecode(timeCodes.Groups[2].Value)
                 where !start.Equals(-1) || !end.Equals(-1)
-                let text =
-                    string.Join<string>(Environment.NewLine,
-                        lines.Skip(2).Where(line => !string.IsNullOrEmpty(line)).ToList())
+                let text = string.Join<string>(Environment.NewLine, lines.Skip(2).Where(line => !string.IsNullOrEmpty(line)).ToList())
                 select new Subtitle
                 {
-                    Text = text,
-                    Start = TimeSpan.FromMilliseconds(start),
-                    End = TimeSpan.FromMilliseconds(end)
+                    Text = text, Start = TimeSpan.FromMilliseconds(start), End = TimeSpan.FromMilliseconds(end)
                 });
 
             return subtitles;
         }
 
-        protected internal static List<string> ReadSubripSubtitleParts(string subtitles)
+        protected internal static async Task<List<string>> ReadSubripSubtitleParts(string subtitles)
         {
             var subtitleParts = new List<string>();
-
             var subtitleBuilder = new StringBuilder();
 
-            foreach (var line in subtitles.Split(new[] { Environment.NewLine }, StringSplitOptions.None))
+            await Task.Run(() =>
             {
-                if (string.IsNullOrEmpty(line))
+                foreach (var line in subtitles.Split(new[] {Environment.NewLine}, StringSplitOptions.None))
                 {
-                    subtitleParts.Add(subtitleBuilder.ToString());
-                    subtitleBuilder = new StringBuilder();
+                    if (string.IsNullOrEmpty(line))
+                    {
+                        subtitleParts.Add(subtitleBuilder.ToString());
+                        subtitleBuilder = new StringBuilder();
+                    }
+                    else
+                    {
+                        subtitleBuilder.AppendLine(line);
+                    }
                 }
-                else
-                {
-                    subtitleBuilder.AppendLine(line);
-                }
-            }
+            });
 
             return subtitleParts;
         }
@@ -87,13 +84,13 @@ namespace SubtitlesParser
             return await ReadFromWebVttAsync(streamResult);
         }
 
-        public static async Task<Subtitles> ReadFromWebVttAsync(string @string)
+        public static async Task<Subtitles> ReadFromWebVttAsync(string source)
         {
             const string timeCodeRegex = @"^([\d\.:]+)\s+-->\s+([\d\.:]+)(?:\s.*)?$";
 
             var subtitles = new Subtitles();
-
-            subtitles.AddRange(from subtitlePart in (await Task.Factory.StartNew(() => ReadWebVttSubtitleParts(@string))).Where(subtitlePart => !subtitlePart.Contains("WEBVTT", StringComparison.OrdinalIgnoreCase))
+            subtitles.AddRange(from subtitlePart in await ReadWebVttSubtitleParts(source)
+                where !subtitlePart.Contains("WEBVTT", StringComparison.OrdinalIgnoreCase)
                 select subtitlePart.Split(new[] {Environment.NewLine}, StringSplitOptions.None).ToList()
                 into lines
                 let firstIndex = lines.FindIndex(line => Regex.IsMatch(line, timeCodeRegex))
@@ -122,31 +119,32 @@ namespace SubtitlesParser
             return TimeSpan.TryParse(timeCode, out timeSpan) ? timeSpan.TotalMilliseconds : -1;
         }
 
-        protected internal static List<string> ReadWebVttSubtitleParts(string subtitles)
+        protected internal static async Task<List<string>> ReadWebVttSubtitleParts(string subtitles)
         {
             var subtitleParts = new List<string>();
-
             var subtitleBuilder = new StringBuilder();
-
-            foreach (var line in subtitles.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None))
+            
+            await Task.Run((() =>
             {
-                if (string.IsNullOrEmpty(line.Trim()))
+                foreach (var line in subtitles.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None))
                 {
+                    if (string.IsNullOrEmpty(line.Trim()))
+                    {
+                        subtitleParts.Add(subtitleBuilder.ToString());
+                        subtitleBuilder = new StringBuilder();
+                    }
+                    else
+                    {
+                        subtitleBuilder.AppendLine(line);
+                    }
+                }
+
+                if (subtitleBuilder.Length > 0)
                     subtitleParts.Add(subtitleBuilder.ToString());
-                    subtitleBuilder = new StringBuilder();
-                }
-                else
-                {
-                    subtitleBuilder.AppendLine(line);
-                }
-            }
 
-            if (subtitleBuilder.Length > 0)
-            {
-                subtitleParts.Add(subtitleBuilder.ToString());
-            }
+                subtitleParts.RemoveAll(string.IsNullOrEmpty);
 
-            subtitleParts.RemoveAll(string.IsNullOrEmpty);
+            }));
 
             return subtitleParts;
         }
