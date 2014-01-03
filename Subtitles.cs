@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -36,7 +37,9 @@ namespace SubtitlesParser
                 let text = string.Join<string>(Environment.NewLine, lines.Skip(2).Where(line => !string.IsNullOrEmpty(line)).ToList())
                 select new Subtitle
                 {
-                    Text = text, Start = TimeSpan.FromMilliseconds(start), End = TimeSpan.FromMilliseconds(end)
+                    Text = text, 
+                    Start = TimeSpan.FromMilliseconds(start),
+                    End = TimeSpan.FromMilliseconds(end)
                 });
 
             return subtitles;
@@ -62,6 +65,11 @@ namespace SubtitlesParser
                     }
                 }
             });
+
+            if (subtitleBuilder.Length > 0)
+                subtitleParts.Add(subtitleBuilder.ToString());
+
+            subtitleParts.RemoveAll(string.IsNullOrEmpty);
 
             return subtitleParts;
         }
@@ -102,7 +110,9 @@ namespace SubtitlesParser
                 let text = string.Join<string>(Environment.NewLine, lines.Skip(firstIndex + 1).Where(line => !string.IsNullOrEmpty(line)).ToList())
                 select new Subtitle
                 {
-                    Text = text, Start = TimeSpan.FromMilliseconds(start), End = TimeSpan.FromMilliseconds(end)
+                    Text = text, 
+                    Start = TimeSpan.FromMilliseconds(start), 
+                    End = TimeSpan.FromMilliseconds(end)
                 });
 
             return subtitles;
